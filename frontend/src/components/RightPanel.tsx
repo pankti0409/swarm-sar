@@ -6,14 +6,16 @@ import { ROVER_DESCRIPTION } from '../simulation/robots/RoverRobot';
 import { DRONE_DESCRIPTION } from '../simulation/robots/DroneRobot';
 import { maxThermal } from '../simulation/sensing/SensorModel';
 import { UNKNOWN } from '../simulation/world/GridMap';
-import { batteryPct, robotConnection } from '../app/format';
+import { batteryFillStyle, batteryPct, robotConnection } from '../app/format';
 import { MiniMap } from './MiniMap';
 
 function Battery({ robot }: { robot: RobotState }) {
   const p = batteryPct(robot);
   return (
     <div className="battery" title={`${p}% battery`}>
-      <div className={`battery-fill ${p > 50 ? 'good' : p > 20 ? 'warn' : 'bad'}`} style={{ width: `${p}%` }} />
+      <div className="battery-track">
+        <div className="battery-fill" style={batteryFillStyle(p)} />
+      </div>
       <span>{p}%</span>
     </div>
   );

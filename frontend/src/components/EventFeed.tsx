@@ -3,17 +3,29 @@ import { useSim } from '../store/simStore';
 import { missionTime } from '../app/format';
 import type { TransmissionRecord } from '../simulation/network/PeerNetwork';
 
-const TONE_ICON = { info: '•', success: '✚', warning: '!', danger: '✕', network: '⇄' } as const;
+const TONE_ICON = { info: '💬', success: '✅', warning: '⚠️', danger: '⛔', network: '📡' } as const;
 
 function Feed() {
   useSim((s) => s.version);
   const engine = useSim((s) => s.engine);
   const select = useSim((s) => s.select);
   const items = engine.feed.slice(-60).reverse();
+  // Peer messages that carried new map cells, keyed so 'network' rows can be matched to them.
+  const oldest = items.length ? items[items.length - 1].step : 0;
+  const shares = new Set<string>();
+  for (let i = engine.rawEvents.length - 1; i >= 0 && engine.rawEvents[i].step >= oldest; i--) {
+    const { step, event } = engine.rawEvents[i];
+    if (event.type === 'map_shared' && event.cells > 0) shares.add(`${step}|${event.from}|${event.to}`);
+  }
   return (
     <ol className="feed">
       {items.map((f) => (
-        <li key={f.id} className={`tone-${f.tone}`} onClick={() => f.robots[0] && select(f.robots[0])}>
+        <li
+          key={f.id}
+          className={`tone-${f.tone} ${f.tone === 'network' && shares.has(`${f.step}|${f.robots[0]}|${f.robots[1]}`) ? 'peer-share' : ''}`}
+          onClick={() => f.robots[0] && select(f.robots[0])}
+        >
+
           <span className="feed-time mono">{missionTime(f.step)}</span>
           <span className="feed-icon">{TONE_ICON[f.tone]}</span>
           <span className="feed-text">{f.text}</span>

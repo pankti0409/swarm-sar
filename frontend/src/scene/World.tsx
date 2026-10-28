@@ -4,29 +4,30 @@ import * as THREE from 'three';
 import type { SimulationEngine } from '../simulation/core/SimulationEngine';
 import { FREE, Material, RUBBLE, WALL } from '../simulation/world/GridMap';
 import { Rng } from '../simulation/core/Rng';
-import { cellToWorld, glowTexture, makeFloorTexture, makeHazardTexture, type QualityProfile } from './common';
+import { cellToWorld, COLORS, glowTexture, makeHazardTexture, makeIsoTileTexture, makeWaterNormalTexture, type QualityProfile } from './common';
 
 const tmp = new THREE.Object3D();
 const color = new THREE.Color();
 
+/** Warm earthy palette: terracotta brick walls, sienna rubble, honey-toned wood. */
 function wallStyle(material: number, rng: Rng): { color: string; jitter: number } {
   switch (material) {
     case Material.Rock:
-      return { color: rng.pick(['#4a3d33', '#3f342c', '#55483b', '#3a312b']), jitter: 0.18 };
+      return { color: rng.pick(['#8b5a3c', '#7a4e33', '#94654a', '#6f4630']), jitter: 0.18 };
     case Material.BrokenWall:
-      return { color: rng.pick(['#7b7570', '#6c6661', '#85807a']), jitter: 0.12 };
+      return { color: rng.pick([COLORS.sienna, '#b0623a', '#9a5532']), jitter: 0.12 };
     case Material.Collapsed:
-      return { color: rng.pick(['#5e5a55', '#6d665e']), jitter: 0.3 };
+      return { color: rng.pick([COLORS.saddle, '#7d4a28']), jitter: 0.3 };
     case Material.Desk:
-      return { color: rng.pick(['#5a4330', '#6b4f36']), jitter: 0.05 };
+      return { color: rng.pick(['#b07a43', '#c08a50']), jitter: 0.05 };
     case Material.Crate:
-      return { color: rng.pick(['#7a5a2e', '#6d5128']), jitter: 0.08 };
+      return { color: rng.pick(['#c68f4e', '#b98244']), jitter: 0.08 };
     case Material.Shelf:
-      return { color: '#4b5560', jitter: 0.03 };
+      return { color: '#8a6b52', jitter: 0.03 };
     case Material.Pillar:
-      return { color: '#77726c', jitter: 0.05 };
+      return { color: '#d9b98a', jitter: 0.05 };
     default:
-      return { color: rng.pick(['#8d8882', '#98928b', '#87827c', '#a29b92']), jitter: 0.02 };
+      return { color: rng.pick([COLORS.terracotta, '#c47a3c', '#d39250', '#b9733a']), jitter: 0.02 };
   }
 }
 
@@ -84,7 +85,7 @@ function Walls({ engine }: { engine: SimulationEngine }) {
       tmp.scale.set(sx, h, sz);
       tmp.updateMatrix();
       mesh.setMatrixAt(n, tmp.matrix);
-      color.set(style.color).multiplyScalar((0.85 + rng.random() * 0.3) * (deep ? (m === Material.Rock ? 0.65 : 0.42) : 1));
+      color.set(style.color).multiplyScalar((0.85 + rng.random() * 0.3) * (deep ? (m === Material.Rock ? 0.6 : 0.5) : 1));
       mesh.setColorAt(n, color);
     });
     mesh.instanceMatrix.needsUpdate = true;
@@ -120,13 +121,15 @@ function Rubble({ engine, perCell }: { engine: SimulationEngine; perCell: number
     const p = new THREE.Vector3();
     spots.forEach(([x, y, size], n) => {
       cellToWorld(engine, x, y, p);
-      const s = (0.18 + rng.random() * 0.32) * size;
-      tmp.position.set(p.x + (rng.random() - 0.5) * 0.9, s * 0.45, p.z + (rng.random() - 0.5) * 0.9);
-      tmp.rotation.set(rng.random() * 3, rng.random() * 3, rng.random() * 3);
-      tmp.scale.set(s * (0.8 + rng.random() * 0.6), s * (0.5 + rng.random() * 0.5), s * (0.8 + rng.random() * 0.6));
+      // Chunky stone blocks: free yaw, only a slight tilt, varied proportions.
+      const s = (0.22 + rng.random() * 0.3) * size;
+      const sy = s * (0.55 + rng.random() * 0.5);
+      tmp.position.set(p.x + (rng.random() - 0.5) * 0.8, sy * 0.5, p.z + (rng.random() - 0.5) * 0.8);
+      tmp.rotation.set((rng.random() - 0.5) * 0.3, rng.random() * Math.PI * 2, (rng.random() - 0.5) * 0.3);
+      tmp.scale.set(s * (0.8 + rng.random() * 0.6), sy, s * (0.8 + rng.random() * 0.6));
       tmp.updateMatrix();
       mesh.setMatrixAt(n, tmp.matrix);
-      color.set(rng.pick(['#6b5d4f', '#7d7065', '#5a4e43', '#8a8076', '#4d4339'])).multiplyScalar(0.8 + rng.random() * 0.4);
+      color.set(rng.pick([COLORS.saddle, COLORS.sienna, COLORS.terracotta, '#b5835a', '#9c7a5c'])).multiplyScalar(0.85 + rng.random() * 0.3);
       mesh.setColorAt(n, color);
     });
     mesh.instanceMatrix.needsUpdate = true;
@@ -137,17 +140,17 @@ function Rubble({ engine, perCell }: { engine: SimulationEngine; perCell: number
   if (!spots.length) return null;
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, spots.length]} castShadow receiveShadow>
-      <dodecahedronGeometry args={[1, 0]} />
-      <meshStandardMaterial roughness={1} flatShading />
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial roughness={0.95} flatShading />
     </instancedMesh>
   );
 }
 
 const PROP_SHAPES = {
-  beam: { geo: <boxGeometry args={[0.14, 0.14, 1.7]} />, color: '#5b4632' },
-  pipe: { geo: <cylinderGeometry args={[0.06, 0.06, 1.5, 8]} />, color: '#7d8790' },
-  debris: { geo: <boxGeometry args={[0.32, 0.12, 0.28]} />, color: '#6e655c' },
-  barrel: { geo: <cylinderGeometry args={[0.22, 0.22, 0.6, 12]} />, color: '#a3471f' },
+  beam: { geo: <boxGeometry args={[0.14, 0.14, 1.7]} />, color: '#9a6a3e' },
+  pipe: { geo: <cylinderGeometry args={[0.06, 0.06, 1.5, 8]} />, color: '#8fa0a8' },
+  debris: { geo: <boxGeometry args={[0.32, 0.12, 0.28]} />, color: '#a07a58' },
+  barrel: { geo: <cylinderGeometry args={[0.22, 0.22, 0.6, 12]} />, color: '#c4552a' },
   cable: { geo: <cylinderGeometry args={[0.025, 0.025, 1.8, 5]} />, color: '#151515' },
 } as const;
 
@@ -277,13 +280,201 @@ function Stairs({ engine }: { engine: SimulationEngine }) {
 
 function Floor({ engine, onFloorClick }: { engine: SimulationEngine; onFloorClick?: (e: ThreeEvent<MouseEvent>) => void }) {
   const { width, height, preset, seed } = engine.scenario;
-  const texture = useMemo(() => makeFloorTexture(width, height, preset, seed), [width, height, preset, seed]);
+  const texture = useMemo(() => makeIsoTileTexture(width, height, preset, seed), [width, height, preset, seed]);
   useEffect(() => () => texture.dispose(), [texture]);
   return (
-    <mesh rotation-x={-Math.PI / 2} receiveShadow onClick={onFloorClick}>
-      <planeGeometry args={[width, height]} />
-      <meshStandardMaterial map={texture} roughness={0.95} metalness={0.02} />
+    <group>
+      <mesh rotation-x={-Math.PI / 2} receiveShadow onClick={onFloorClick}>
+        <planeGeometry args={[width, height]} />
+        <meshStandardMaterial map={texture} roughness={0.9} metalness={0} />
+      </mesh>
+      {/* Earthen cliff face around the site so the floor reads as a raised island. */}
+      <mesh position={[0, -0.36, 0]}>
+        <boxGeometry args={[width + 0.02, 0.7, height + 0.02]} />
+        <meshStandardMaterial color="#8b6a45" roughness={1} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Turquoise water surrounding the site. A tiled sine-ripple normal map drifts
+ * on two axes; that alone makes the flat plane shimmer, at almost no cost.
+ */
+function Water({ engine, animate }: { engine: SimulationEngine; animate: boolean }) {
+  const { width, height } = engine.scenario;
+  const normal = useMemo(() => makeWaterNormalTexture(), []);
+  useEffect(() => () => normal.dispose(), [normal]);
+  const span = Math.max(width, height) + 60;
+  normal.repeat.set(span / 3, span / 3);
+  useFrame(({ clock }) => {
+    if (!animate) return;
+    const t = clock.elapsedTime;
+    normal.offset.set(Math.sin(t * 0.25) * 0.15 + t * 0.02, Math.cos(t * 0.2) * 0.15);
+  });
+  return (
+    <mesh rotation-x={-Math.PI / 2} position={[0, -0.45, 0]} receiveShadow>
+      <planeGeometry args={[span, span]} />
+      <meshStandardMaterial color={COLORS.water} normalMap={normal} normalScale={new THREE.Vector2(0.6, 0.6)} roughness={0.25} metalness={0.1} />
     </mesh>
+  );
+}
+
+/**
+ * Low-poly bushes on open cells that touch a wall (about one per six such
+ * cells). Decoration only: they sit at the cell edge and never affect logic.
+ */
+function Greenery({ engine }: { engine: SimulationEngine }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const { grid, seed } = engine.scenario;
+  const bushes = useMemo(() => {
+    const rng = new Rng(seed ^ 0x6ee7);
+    const list: Array<{ x: number; z: number; s: number; tone: number }> = [];
+    const spawn = engine.scenario.spawn;
+    for (let y = 1; y < grid.height - 1; y++)
+      for (let x = 1; x < grid.width - 1; x++) {
+        if (grid.get(x, y) !== FREE) continue;
+        if (x >= spawn.x && x < spawn.x + spawn.size && y >= spawn.y && y < spawn.y + spawn.size) continue;
+        const walls: Array<[number, number]> = [];
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as const)
+          if (grid.get(x + dx, y + dy) === WALL) walls.push([dx, dy]);
+        if (!walls.length || rng.random() > 1 / 6) continue;
+        // Tuck the bush against the wall it touches.
+        const [dx, dy] = rng.pick(walls);
+        list.push({ x: x + dx * 0.32, z: y + dy * 0.32, s: 0.18 + rng.random() * 0.14, tone: rng.random() });
+      }
+    return list;
+  }, [engine, grid, seed]);
+
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const p = new THREE.Vector3();
+    bushes.forEach((b, n) => {
+      cellToWorld(engine, b.x, b.z, p);
+      tmp.position.set(p.x, b.s * 0.7, p.z);
+      tmp.rotation.set(0, b.tone * Math.PI * 2, 0);
+      tmp.scale.set(b.s * 1.2, b.s, b.s * 1.2);
+      tmp.updateMatrix();
+      mesh.setMatrixAt(n, tmp.matrix);
+      color.set(COLORS.leaf).lerp(new THREE.Color(COLORS.leafDark), b.tone);
+      mesh.setColorAt(n, color);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [engine, bushes]);
+
+  if (!bushes.length) return null;
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, bushes.length]} castShadow receiveShadow>
+      <icosahedronGeometry args={[1, 0]} />
+      <meshStandardMaterial roughness={0.85} flatShading />
+    </instancedMesh>
+  );
+}
+
+/** Warm ember glow floating above up to three well-separated rubble piles. */
+function EmberLights({ engine }: { engine: SimulationEngine }) {
+  const piles = useMemo(() => {
+    const { grid } = engine.scenario;
+    const picks: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i < grid.cells.length && picks.length < 3; i++) {
+      if (grid.cells[i] !== RUBBLE) continue;
+      const x = i % grid.width;
+      const y = Math.floor(i / grid.width);
+      if (picks.every((p) => Math.hypot(p.x - x, p.y - y) > 8)) picks.push({ x, y });
+    }
+    return picks;
+  }, [engine]);
+  const refs = useRef<Array<THREE.PointLight | null>>([]);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    // Fire-like flicker from two incommensurate sines.
+    refs.current.forEach((l, i) => l && (l.intensity = 3 + Math.sin(t * 7.3 + i) * 0.6 + Math.sin(t * 13.1 + i * 2) * 0.4));
+  });
+  return (
+    <>
+      {piles.map((p, i) => {
+        const w = cellToWorld(engine, p.x, p.y);
+        return <pointLight key={i} ref={(el) => (refs.current[i] = el)} position={[w.x, 1.1, w.z]} color={COLORS.ember} distance={5} decay={1.5} />;
+      })}
+    </>
+  );
+}
+
+/** Drift speed in units/s; fast enough that the motion is noticeable over a few seconds. */
+const CLOUD_SPEED = 0.2;
+
+/**
+ * Clouds fade out as the camera nears them or drops towards their height, so
+ * close-ups (camera ~7 up, inside the cloud band) never look through a cloud.
+ */
+const CLOUD_FADE_NEAR = 3;
+const CLOUD_FADE_FAR = 8;
+const CLOUD_CLEARANCE_MIN = 2;
+const CLOUD_CLEARANCE_FULL = 7;
+
+/**
+ * Puffy clouds (clusters of flattened spheres) drifting in +X over the edges
+ * of the site and wrapping around, high enough not to hide the robots.
+ */
+function Clouds({ engine }: { engine: SimulationEngine }) {
+  const { width, height, seed } = engine.scenario;
+  const group = useRef<THREE.Group>(null);
+  const clouds = useMemo(() => {
+    const rng = new Rng(seed ^ 0xc10d);
+    const count = 4 + rng.integers(0, 3);
+    return Array.from({ length: count }, (_, i) => {
+      // Alternate between the near and far edge bands so the centre stays clear.
+      const edge = i % 2 ? -1 : 1;
+      return {
+        x: (rng.random() - 0.5) * (width + 20),
+        y: 6 + rng.random() * 2,
+        z: edge * (height / 2 + 1 + rng.random() * 5),
+        puffs: Array.from({ length: 3 + rng.integers(0, 3) }, () => [(rng.random() - 0.5) * 3, rng.random() * 0.3, (rng.random() - 0.5) * 1.4, 0.6 + rng.random() * 0.5] as const),
+      };
+    });
+  }, [width, height, seed]);
+  // One material per cloud so each can fade independently.
+  const materials = useMemo(
+    () => clouds.map(() => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#dfe8f5', emissiveIntensity: 0.35, roughness: 1, transparent: true, opacity: 0.92 })),
+    [clouds],
+  );
+  useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
+  const wrap = width / 2 + 14;
+  useFrame(({ camera }, dt) => {
+    group.current?.children.forEach((c, i) => {
+      c.position.x += dt * CLOUD_SPEED;
+      if (c.position.x > wrap) c.position.x = -wrap;
+      const near = Math.min(
+        THREE.MathUtils.smoothstep(camera.position.distanceTo(c.position), CLOUD_FADE_NEAR, CLOUD_FADE_FAR),
+        THREE.MathUtils.smoothstep(camera.position.y - c.position.y, CLOUD_CLEARANCE_MIN, CLOUD_CLEARANCE_FULL),
+      );
+
+      materials[i].opacity = 0.92 * near;
+      c.visible = near > 0.02;
+    });
+  });
+  return (
+    <group ref={group}>
+      {clouds.map((c, i) => (
+        <group key={i} position={[c.x, c.y, c.z]}>
+          {/* Each puff is a flattened ellipsoid (~3 × 0.4 × 2 for the whole cloud). */}
+          {c.puffs.map(([px, py, pz, r], k) => (
+            <mesh key={k} position={[px, py, pz]} scale={[r * 1.5, r * 0.5, r * 1.1]} material={materials[i]}>
+              <sphereGeometry args={[1, 12, 8]} />
+            </mesh>
+
+          ))}
+        </group>
+      ))}
+    </group>
   );
 }
 
@@ -383,10 +574,15 @@ export function World({
   return (
     <group>
       <Floor engine={engine} onFloorClick={onFloorClick} />
+      <Water engine={engine} animate={quality.clouds} />
       <StagingZone engine={engine} />
       <Walls engine={engine} />
       <Rubble engine={engine} perCell={quality.rubblePerCell} />
+      <Greenery engine={engine} />
       <Props engine={engine} />
+      <EmberLights engine={engine} />
+      {quality.clouds && <Clouds engine={engine} />}
+
       <Stairs engine={engine} />
       <EmergencyLights engine={engine} count={quality.emergencyLights} />
       {quality.lightShafts && <LightShafts engine={engine} />}

@@ -49,6 +49,10 @@ export const pct = (v: number, digits = 0) => `${(v * 100).toFixed(digits)}%`;
 
 export const batteryPct = (r: RobotState) => Math.round((r.battery / r.maxBattery) * 100);
 
+/** Fill width plus the full-track gradient size (--full) so the bar's tip shows the level colour. */
+export const batteryFillStyle = (p: number) =>
+  ({ width: `${p}%`, '--full': `${p > 0 ? (100 / p) * 100 : 100}%` }) as React.CSSProperties;
+
 export function robotConnection(engine: SimulationEngine, r: RobotState): { label: string; tone: HealthTone } {
   if (!engine.network.enabled) return { label: 'Radio off', tone: 'off' };
   if (!r.alive) return { label: 'Offline', tone: 'off' };

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { SimulationEngine } from '../simulation/core/SimulationEngine';
 import { evidencePosition, maxThermal } from '../simulation/sensing/SensorModel';
 import { UNKNOWN } from '../simulation/world/GridMap';
-import { cellToWorld, COLORS, glowTexture, type QualityProfile } from './common';
+import { cellToWorld, COLORS, glowTexture, makeScanlineTexture, type QualityProfile } from './common';
 import { RobotAnchor } from './Network';
 import { useSim } from '../store/simStore';
 
@@ -24,6 +24,13 @@ export function CoverageFog({ engine, robot }: { engine: SimulationEngine; robot
     return t;
   }, [width, height]);
   useEffect(() => () => texture.dispose(), [texture]);
+  // Faint scanlines (two per cell) multiplied into the fog's alpha for a "sensor mode" feel.
+  const scanlines = useMemo(() => {
+    const t = makeScanlineTexture();
+    t.repeat.set(1, height * 2);
+    return t;
+  }, [height]);
+  useEffect(() => () => scanlines.dispose(), [scanlines]);
 
   useEffect(() => {
     const data = texture.image.data as Uint8Array;
@@ -43,7 +50,8 @@ export function CoverageFog({ engine, robot }: { engine: SimulationEngine; robot
       data[o] = only ? 6 : 3;
       data[o + 1] = only ? 10 : 5;
       data[o + 2] = only ? 26 : 10;
-      data[o + 3] = known ? 0 : only ? 190 : 150;
+      // Strong enough to dim the bright sand tiles so explored ground clearly stands out.
+      data[o + 3] = known ? 0 : only ? 215 : 185;
     }
     texture.needsUpdate = true;
   }, [engine, robot, texture, version, width, height]);
@@ -51,23 +59,34 @@ export function CoverageFog({ engine, robot }: { engine: SimulationEngine; robot
   return (
     <mesh rotation-x={-Math.PI / 2} position={[0, 2.85, 0]} renderOrder={5}>
       <planeGeometry args={[width, height]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
+      <meshBasicMaterial map={texture} alphaMap={scanlines} transparent depthWrite={false} toneMapped={false} />
     </mesh>
   );
 }
 
+/**
+ * SOS beacon for a confirmed survivor: a thin pulsing light beam that grows
+ * out of the floor, topped with a spinning star-of-life cross.
+ */
 function SurvivorBeacon({ position, quality, index }: { position: THREE.Vector3; quality: QualityProfile; index: number }) {
-  const column = useRef<THREE.Mesh>(null);
+  const beam = useRef<THREE.Mesh>(null);
+  const cross = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
   const born = useRef<number | null>(null);
   useFrame(({ clock }) => {
     if (born.current === null) born.current = clock.elapsedTime;
     const age = clock.elapsedTime - born.current;
     const t = clock.elapsedTime + index;
-    if (column.current) {
-      const grow = Math.min(1, age / 0.8);
-      column.current.scale.set(1, grow, 1);
-      (column.current.material as THREE.MeshBasicMaterial).opacity = 0.18 + 0.08 * Math.sin(t * 3);
+    const grow = Math.min(1, age / 0.8);
+    if (beam.current) {
+      beam.current.scale.set(1, grow, 1);
+      beam.current.position.y = 2 * grow;
+      (beam.current.material as THREE.MeshBasicMaterial).opacity = 0.65 + 0.35 * Math.sin(t * 4);
+    }
+    if (cross.current) {
+      cross.current.position.y = 4 * grow + 0.35;
+      cross.current.rotation.y = clock.elapsedTime * 1.8;
+      cross.current.scale.setScalar(grow * (1 + 0.08 * Math.sin(t * 4)));
     }
     if (ring.current) {
       const p = (t % 1.6) / 1.6;
@@ -82,10 +101,21 @@ function SurvivorBeacon({ position, quality, index }: { position: THREE.Vector3;
         <capsuleGeometry args={[0.13, 0.5, 4, 8]} />
         <meshStandardMaterial color="#c9a27e" roughness={0.8} emissive="#ff6a2b" emissiveIntensity={0.25} />
       </mesh>
-      <mesh ref={column} position={[0, 3, 0]}>
-        <cylinderGeometry args={[0.12, 0.28, 6, 16, 1, true]} />
-        <meshBasicMaterial color={COLORS.survivor} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+      <mesh ref={beam}>
+        <cylinderGeometry args={[0.05, 0.05, 4, 10]} />
+        <meshBasicMaterial color={COLORS.survivor} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
       </mesh>
+      <group ref={cross}>
+        <mesh>
+          <boxGeometry args={[0.6, 0.18, 0.06]} />
+          <meshBasicMaterial color={COLORS.survivor} toneMapped={false} />
+        </mesh>
+        <mesh>
+          <boxGeometry args={[0.18, 0.6, 0.06]} />
+          <meshBasicMaterial color={COLORS.survivor} toneMapped={false} />
+        </mesh>
+      </group>
+
       <mesh ref={ring} rotation-x={-Math.PI / 2} position={[0, 0.05, 0]}>
         <ringGeometry args={[0.85, 1, 40]} />
         <meshBasicMaterial color={COLORS.survivor} transparent depthWrite={false} toneMapped={false} />
