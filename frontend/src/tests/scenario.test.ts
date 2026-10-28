@@ -1,5 +1,5 @@
 import { PRESETS, generateScenario, scenarioFingerprint } from '../simulation/world/ScenarioGenerator';
-import { FREE, WALL, bfsDistances } from '../simulation/world/GridMap';
+import { FREE, RUBBLE, WALL, bfsDistances } from '../simulation/world/GridMap';
 
 describe('ScenarioGenerator', () => {
   it.each(PRESETS.map((p) => p.id))('same seed gives the same %s scenario', (preset) => {
@@ -23,6 +23,25 @@ describe('ScenarioGenerator', () => {
       shapes.add(s.height > s.width ? 'portrait' : 'landscape');
     }
     expect(shapes).toEqual(new Set(['portrait', 'landscape']));
+  });
+
+  it('earthquake apartment has a broken stairwell between its corridors', () => {
+    for (let seed = 0; seed < 4; seed++) {
+      const s = generateScenario({ preset: 'apartment', seed });
+      expect(s.stairwell).not.toBeNull();
+      const { x, y0, y1 } = s.stairwell!;
+      // Broken flights are rubble; later collapse damage may seal a few cells, but most stay passable.
+      let rubble = 0;
+      let open = 0;
+      for (let y = y0; y <= y1; y++)
+        for (const cx of [x, x + 1]) {
+          if (s.grid.get(cx, y) === RUBBLE) rubble++;
+          if (s.grid.get(cx, y) !== WALL) open++;
+        }
+      expect(rubble).toBeGreaterThan(0);
+      expect(open).toBeGreaterThan((y1 - y0 + 1) * 2 * 0.6);
+    }
+    expect(generateScenario({ preset: 'office', seed: 0 }).stairwell).toBeNull();
   });
 
   it.each(PRESETS.map((p) => p.id))('%s places reachable, separated survivors away from spawn', (preset) => {

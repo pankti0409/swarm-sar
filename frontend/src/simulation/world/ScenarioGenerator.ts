@@ -58,6 +58,12 @@ export interface Victim {
 
 export type PropKind = 'beam' | 'pipe' | 'debris' | 'barrel' | 'cable';
 
+export interface Stairwell {
+  x: number;
+  y0: number;
+  y1: number;
+}
+
 export interface DecorProp {
   kind: PropKind;
   x: number;
@@ -85,6 +91,8 @@ export interface Scenario {
   props: DecorProp[];
   emergencyLights: Point[];
   openings: Point[];
+  /** Apartment stairwell (rendering only): two cells wide from row y0 to y1. */
+  stairwell: Stairwell | null;
   maxSteps: number;
   batteryScale: number;
 }
@@ -98,6 +106,7 @@ export interface ScenarioOptions {
 class Builder {
   grid: GridMap;
   material: Uint8Array;
+  stairwell: Stairwell | null = null;
   constructor(
     readonly width: number,
     readonly height: number,
@@ -332,6 +341,7 @@ function layoutApartment(b: Builder): Rect {
   // Stairwell linking the two corridors; its broken flights are rubble.
   const stairX = rng.integers(Math.floor(W / 3), Math.floor((2 * W) / 3));
   b.rect(stairX, c1, stairX + 1, c2, FREE);
+  b.stairwell = { x: stairX, y0: c1, y1: c2 };
   for (let y = c1 + 2; y < c2 - 1; y += 2) b.setCell(stairX + (y % 4 === 0 ? 0 : 1), y, RUBBLE);
   // Apartment units on each side of the corridors.
   const bands: Array<[number, number, number]> = [
@@ -591,6 +601,7 @@ export function generateScenario(options: ScenarioOptions): Scenario {
       props,
       emergencyLights,
       openings,
+      stairwell: b.stairwell,
       // Step 2.5 scales mission time and battery with site area (base: 400 steps on 32×32).
       maxSteps: Math.max(400, Math.round((400 * area) / 1024)),
       batteryScale: Math.max(1, area / 1024),

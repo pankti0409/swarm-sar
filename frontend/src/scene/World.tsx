@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SimulationEngine } from '../simulation/core/SimulationEngine';
-import { Material, RUBBLE, WALL } from '../simulation/world/GridMap';
+import { FREE, Material, RUBBLE, WALL } from '../simulation/world/GridMap';
 import { Rng } from '../simulation/core/Rng';
 import { cellToWorld, glowTexture, makeFloorTexture, makeHazardTexture, type QualityProfile } from './common';
 
@@ -204,6 +204,77 @@ function PropGroup({ engine, kind, items }: { engine: SimulationEngine; kind: ke
   );
 }
 
+/** Broken stairwell treads and railing (apartment preset). Purely visual: the grid decides traversal. */
+function Stairs({ engine }: { engine: SimulationEngine }) {
+  const treads = useRef<THREE.InstancedMesh>(null);
+  const posts = useRef<THREE.InstancedMesh>(null);
+  const layout = useMemo(() => {
+    const well = engine.scenario.stairwell;
+    const steps: Array<{ x: number; y: number; h: number; tilt: number; yaw: number }> = [];
+    const rails: Array<{ x: number; y: number; fallen: number }> = [];
+    if (!well) return { steps, rails };
+    const rng = new Rng(engine.scenario.seed ^ 0x57a1);
+    const span = Math.max(1, well.y1 - well.y0 - 2);
+    for (let y = well.y0 + 1; y < well.y1; y++) {
+      // Treads climb towards the landing halfway, then descend again.
+      const t = (y - well.y0 - 1) / span;
+      const h = 0.03 + 0.16 * (1 - Math.abs(t * 2 - 1));
+      for (const x of [well.x, well.x + 1]) {
+        // Rubble and collapsed (wall) cells are drawn by their own layers.
+        if (engine.scenario.grid.get(x, y) !== FREE) continue;
+        const broken = rng.random() < 0.25;
+        steps.push({ x, y, h, tilt: broken ? (rng.random() - 0.5) * 0.5 : 0, yaw: broken ? (rng.random() - 0.5) * 0.4 : 0 });
+      }
+      if ((y - well.y0) % 2 === 0) for (const x of [well.x - 0.45, well.x + 1.45]) rails.push({ x, y, fallen: rng.random() < 0.3 ? rng.random() * 1.3 : 0 });
+    }
+    return { steps, rails };
+  }, [engine]);
+
+  useEffect(() => {
+    const p = new THREE.Vector3();
+    const t = treads.current;
+    if (t) {
+      layout.steps.forEach((s, n) => {
+        cellToWorld(engine, s.x, s.y, p);
+        tmp.position.set(p.x, s.h / 2, p.z);
+        tmp.rotation.set(s.tilt, s.yaw, 0);
+        tmp.scale.set(1, s.h / 0.1, 1);
+        tmp.updateMatrix();
+        t.setMatrixAt(n, tmp.matrix);
+      });
+      t.instanceMatrix.needsUpdate = true;
+      t.computeBoundingSphere();
+    }
+    const r = posts.current;
+    if (r) {
+      layout.rails.forEach((s, n) => {
+        cellToWorld(engine, s.x, s.y, p);
+        tmp.position.set(p.x, s.fallen ? 0.08 : 0.45, p.z);
+        tmp.rotation.set(s.fallen ? Math.PI / 2 : 0, s.fallen, 0);
+        tmp.scale.set(1, 1, 1);
+        tmp.updateMatrix();
+        r.setMatrixAt(n, tmp.matrix);
+      });
+      r.instanceMatrix.needsUpdate = true;
+      r.computeBoundingSphere();
+    }
+  }, [engine, layout]);
+
+  if (!layout.steps.length) return null;
+  return (
+    <group>
+      <instancedMesh ref={treads} args={[undefined, undefined, layout.steps.length]} castShadow receiveShadow>
+        <boxGeometry args={[0.94, 0.1, 0.8]} />
+        <meshStandardMaterial color="#77736b" roughness={0.9} />
+      </instancedMesh>
+      <instancedMesh ref={posts} args={[undefined, undefined, layout.rails.length]} castShadow>
+        <cylinderGeometry args={[0.03, 0.03, 0.9, 6]} />
+        <meshStandardMaterial color="#3d4248" roughness={0.5} metalness={0.7} />
+      </instancedMesh>
+    </group>
+  );
+}
+
 function Floor({ engine, onFloorClick }: { engine: SimulationEngine; onFloorClick?: (e: ThreeEvent<MouseEvent>) => void }) {
   const { width, height, preset, seed } = engine.scenario;
   const texture = useMemo(() => makeFloorTexture(width, height, preset, seed), [width, height, preset, seed]);
@@ -316,6 +387,7 @@ export function World({
       <Walls engine={engine} />
       <Rubble engine={engine} perCell={quality.rubblePerCell} />
       <Props engine={engine} />
+      <Stairs engine={engine} />
       <EmergencyLights engine={engine} count={quality.emergencyLights} />
       {quality.lightShafts && <LightShafts engine={engine} />}
     </group>
