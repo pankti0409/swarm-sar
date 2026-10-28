@@ -149,8 +149,6 @@ function Scene() {
   const fog = useSim((s) => s.settings.fog);
   const quality = QUALITY[qualityName];
   const scene = useThree((s) => s.scene);
-  const cam = useThree((s) => s.camera);
-  useEffect(() => { (window as any).__dbg = { scene, cam }; }, [scene, cam]);
 
   // The smoke slider scales atmospheric depth; its 50% default gives density 0.018.
   useEffect(() => {
