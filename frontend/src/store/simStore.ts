@@ -34,6 +34,7 @@ export interface Settings {
 
 export interface Overlays {
   links: boolean;
+  graph: boolean;
   packets: boolean;
   ranges: boolean;
   paths: boolean;
@@ -113,6 +114,7 @@ export const useSim = create<Store>((set, get) => ({
   settings: initialSettings,
   overlays: {
     links: true,
+    graph: false,
     packets: true,
     ranges: false,
     paths: true,

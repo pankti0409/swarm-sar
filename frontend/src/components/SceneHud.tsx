@@ -1,6 +1,7 @@
 import { useSim } from '../store/simStore';
 import { swarmIntent } from '../app/format';
 import { PRESETS } from '../simulation/world/ScenarioGenerator';
+import { NetworkGraph } from './NetworkGraph';
 
 /** Overlay on the 3D view: what happened, what the swarm is doing, and a legend. */
 export function SceneHud() {
@@ -8,6 +9,7 @@ export function SceneHud() {
   const engine = useSim((s) => s.engine);
   const status = useSim((s) => s.status);
   const truth = useSim((s) => s.overlays.truth);
+  const graph = useSim((s) => s.overlays.graph);
   const mode = useSim((s) => s.settings.mode);
   const selected = useSim((s) => s.selected);
   const launch = useSim((s) => s.launch);
@@ -56,6 +58,8 @@ export function SceneHud() {
           Driving <strong>{manualRobot.label}</strong> — click the floor for a waypoint, arrows/WASD to step, E to scan.
         </div>
       )}
+
+      {graph && <NetworkGraph />}
 
       <div className="legend">
         <div>

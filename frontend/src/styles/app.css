@@ -617,6 +617,66 @@ input[type='range'] {
   font-size: 11px;
   color: var(--muted);
 }
+.net-graph {
+  position: absolute;
+  right: 12px;
+  bottom: 84px;
+  background: rgba(8, 11, 17, 0.78);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 8px 4px;
+  backdrop-filter: blur(6px);
+}
+.net-graph-title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.net-graph svg {
+  display: block;
+}
+.net-graph-site {
+  fill: rgba(130, 160, 200, 0.04);
+  stroke: var(--border);
+}
+.net-graph-node {
+  cursor: pointer;
+}
+.net-graph-node text {
+  fill: var(--text);
+  font-size: 9px;
+  font-family: var(--mono);
+}
+.net-graph-isolated {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 1.5;
+  animation: net-graph-blink 1s ease-in-out infinite;
+}
+.net-graph-selected {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.tone-fill-good {
+  fill: var(--good);
+}
+.tone-fill-warn {
+  fill: var(--warn);
+}
+.tone-fill-bad {
+  fill: var(--bad);
+}
+.tone-fill-off {
+  fill: var(--faint);
+}
+@keyframes net-graph-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
 .lg-line {
   display: inline-block;
   width: 16px;

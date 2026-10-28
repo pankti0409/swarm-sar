@@ -108,6 +108,7 @@ Manual commands always pass through the same collision-safety shield and physics
 The View section toggles:
 
 - network links: green healthy, yellow weak or lossy, red lost or partitioned;
+- network graph overlay: a 2D graph of robots and their live links, with a blinking red ring on isolated robots (off by default; click a node to select it);
 - packet pulses;
 - radio ranges;
 - planned paths;

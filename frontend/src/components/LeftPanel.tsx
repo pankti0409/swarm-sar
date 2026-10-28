@@ -87,6 +87,7 @@ export function LeftPanel() {
 
   const overlayToggles: Array<[keyof Overlays, string]> = [
     ['links', 'Network links'],
+    ['graph', 'Network graph overlay'],
     ['packets', 'Packet pulses'],
     ['ranges', 'Radio ranges'],
     ['paths', 'Planned paths'],
