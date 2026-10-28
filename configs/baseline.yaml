@@ -1,8 +1,0 @@
-thermal_investigate_threshold: 0.32
-acoustic_interest_threshold: 0.20
-repeat_evidence_required: 2
-evidence_merge_radius: 3.0
-evidence_expiry_steps: 12
-topology_update_interval: 5
-peer_map_exchange: false
-max_steps: 400
